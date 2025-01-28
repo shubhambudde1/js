@@ -1,27 +1,286 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>HLS Video Player</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Streaming Platform</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            color: #1a1a1a;
+            margin-bottom: 20px;
+        }
+
+        .upload-section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .upload-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .upload-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .upload-btn:hover {
+            background-color: #45a049;
+        }
+
+        .videos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .video-card {
+            background-color: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .video-player {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background-color: #000;
+        }
+
+        .video-info {
+            padding: 15px;
+        }
+
+        .video-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #1a1a1a;
+            word-break: break-all;
+        }
+
+        .video-date {
+            font-size: 14px;
+            color: #666;
+        }
+
+        #uploadProgress {
+            display: none;
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        #progressBar {
+            width: 0%;
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+        }
+
+        .error-message {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-    <video id="video" controls width="640"></video>
-    <script>
-        const video = document.getElementById('video');
-        const videoUrl = 'http://localhost:3000/videos/a0ff6495-66b4-4396-b79e-4bfcf3fd35f3/hls/playlist.m3u8';
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-play-circle"></i> Video Streaming Platform</h1>
+        </div>
 
-        if (Hls.isSupported()) {
-            const hls = new Hls();
-            hls.loadSource(videoUrl);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.play();
+        <div class="upload-section">
+            <form id="uploadForm" class="upload-form">
+                <input type="file" id="videoFile" accept="video/*" style="display: none">
+                <button type="button" class="upload-btn" onclick="document.getElementById('videoFile').click()">
+                    <i class="fas fa-upload"></i> Select Video
+                </button>
+                <button type="submit" class="upload-btn">
+                    <i class="fas fa-cloud-upload-alt"></i> Upload Video
+                </button>
+            </form>
+            <div id="uploadProgress">
+                <div id="progressBar"></div>
+            </div>
+            <div id="errorMessage" class="error-message"></div>
+        </div>
+
+        <div id="videosGrid" class="videos-grid">
+            <!-- Videos will be dynamically added here -->
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.10/hls.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadVideos();
+            setupUploadForm();
+        });
+
+        function setupUploadForm() {
+            const form = document.getElementById('uploadForm');
+            const progressBar = document.getElementById('progressBar');
+            const progressDiv = document.getElementById('uploadProgress');
+            const errorMessage = document.getElementById('errorMessage');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fileInput = document.getElementById('videoFile');
+                if (!fileInput.files[0]) {
+                    showError('Please select a video first');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('video', fileInput.files[0]);
+
+                progressDiv.style.display = 'block';
+                progressBar.style.width = '0%';
+                errorMessage.style.display = 'none';
+
+                try {
+                    const response = await fetch('http://localhost:3001/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        alert('Video uploaded successfully!');
+                        loadVideos();
+                    } else {
+                        throw new Error('Upload failed');
+                    }
+                } catch (error) {
+                    showError('Error uploading video: ' + error.message);
+                } finally {
+                    progressDiv.style.display = 'none';
+                    form.reset();
+                }
             });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = videoUrl;
-            video.addEventListener('loadedmetadata', () => {
-                video.play();
-            });
+        }
+
+        function showError(message) {
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+
+        async function loadVideos() {
+            const videosGrid = document.getElementById('videosGrid');
+            videosGrid.innerHTML = '';
+
+            try {
+                // Get list of video directories
+                const dirResponse = await fetch('http://localhost:3001/videos');
+                if (!dirResponse.ok) throw new Error('Failed to fetch videos');
+                
+                const videoFolders = await dirResponse.json();
+                
+                videoFolders.forEach(folder => {
+                    if (folder.includes('hls/playlist.m3u8')) {
+                        const videoCard = createVideoCard({
+                            url: `http://localhost:3001/videos/${folder}`,
+                            title: folder.split('/')[0]
+                        });
+                        videosGrid.appendChild(videoCard);
+                    }
+                });
+            } catch (error) {
+                // If directory listing isn't available, try to find videos from the file structure
+                const videoIds = [
+                    '24522e73-985a-4573-933d-ece3bdb191f7',
+                    '2ae0cd9a-d70f-46d5-94e6-9cdfc394fabd',
+                    '3e7f4776-12c9-48fc-8dec-22de79ee0df8',
+                    '43abbd28-4638-4ad8-9ab0-b9d9f4b6aa24',
+                    '8991f97c-6a70-44db-9ee8-00560d71e228',
+                    '9dcaef8a-3ae8-45e7-8d83-05a33bf70422',
+                    'a0ff6495-66b4-4396-b79e-4bfcf3fd35f3',
+                    'afc6bf7f-4250-4312-8db7-2cbcc1d126e2',
+                    'b04897b7-b9df-47eb-9936-b5c4c9423a47',
+                    'd109d8f6-5162-4e23-a283-fcf9a7770463',
+                    'de7cbda9-9b67-4cab-9dd7-d43aaa968dee',
+                    'fbe83f1c-5240-43cf-a13a-aaaba4bb4f37'
+                ];
+
+                videoIds.forEach(id => {
+                    const videoCard = createVideoCard({
+                        url: `http://localhost:3001/videos/${id}/hls/playlist.m3u8`,
+                        title: `Video ${id}`
+                    });
+                    videosGrid.appendChild(videoCard);
+                });
+            }
+        }
+
+        function createVideoCard(video) {
+            const card = document.createElement('div');
+            card.className = 'video-card';
+            
+            const videoElement = document.createElement('video');
+            videoElement.className = 'video-player';
+            videoElement.controls = true;
+            
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(video.url);
+                hls.attachMedia(videoElement);
+            } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                videoElement.src = video.url;
+            }
+
+            const info = document.createElement('div');
+            info.className = 'video-info';
+            info.innerHTML = `
+                <div class="video-title">${video.title}</div>
+                <div class="video-date">Available for streaming</div>
+            `;
+
+            card.appendChild(videoElement);
+            card.appendChild(info);
+
+            return card;
         }
     </script>
 </body>

@@ -8,7 +8,7 @@ ffmpeg.setFfmpegPath('C:\\\\ffmpeg\\\\ffmpeg-2025-01-22-git-e20ee9f9ae-full_buil
 const fs = require('fs');
 
 const app = express();
-const port = 3000;
+const port = 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -58,6 +58,10 @@ app.post('/upload', upload.single('video'), (req, res) => {
         .run();
 });
 
+
+
 app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
 });
+
+
